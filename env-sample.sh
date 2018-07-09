@@ -1,0 +1,1 @@
+export SENTRY_DSN='https://pUbL1cKey@sentry.io/1234567'
