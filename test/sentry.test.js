@@ -1,7 +1,7 @@
 var Funcmatic = require('@funcmatic/funcmatic')
 var SentryPlugin = require('../lib/sentry')
 
-var handler = Funcmatic.wrap(async (event, { sentry }) => {
+var handler = Funcmatic.wrap(async (event, context, { sentry }) => {
   try {
     if (event.queryStringParameters.throwError) {
       throw new Error(event.queryStringParameters.throwError)
