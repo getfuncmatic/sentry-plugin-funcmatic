@@ -22,6 +22,12 @@ var handler = Funcmatic.wrap(async (event, context, { sentry }) => {
       sub: "USER-SUB",
       email: "danieljyoo@gmail.com"
     } })
+    await sentry.captureException(new Error("Try sending 'extra' params"), {
+      extra: {
+        event: { headers: { 'header': 'value' }, body: "{\"hello\":\"world\"}" },
+        context: { foo: 'bar' }
+      }
+    })
     return {
       statusCode: 500,
       body: err.message
