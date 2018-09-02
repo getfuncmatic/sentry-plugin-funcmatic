@@ -1,49 +1,46 @@
-var Funcmatic = require('@funcmatic/funcmatic')
+require('dotenv').config()
+var funcmatic = require('@funcmatic/funcmatic')
 var SentryPlugin = require('../lib/sentry')
 
-var handler = Funcmatic.wrap(async (event, context, { sentry }) => {
-  try {
-    if (event.queryStringParameters.throwError) {
-      throw new Error(event.queryStringParameters.throwError)
-    }
-    return {
-      statusCode: 200
-    }
-  } catch (err) {
-    // headers, method, host, protocol, url, query, cookies, body, ip and user
-    await sentry.captureException(err, { req: { 
-      body: "Hello World",
-      headers: {
-        "X-Funcmatic-Test": 'true'
-      },
-      query: "w=blah&q=blahblah",
-      url: "/hello/world"
-    }, event, user: {
-      sub: "USER-SUB",
-      email: "danieljyoo@gmail.com"
-    } })
-    await sentry.captureException(new Error("Try sending 'extra' params"), {
-      extra: {
-        event: { headers: { 'header': 'value' }, body: "{\"hello\":\"world\"}" },
-        context: { foo: 'bar' }
-      }
-    })
-    return {
-      statusCode: 500,
-      body: err.message
-    }
-  }
+funcmatic.use(SentryPlugin, {
+  dsn: process.env.SENTRY_DSN
 })
 
 describe('Request', () => {
+  plugin = null
   beforeEach(() => {
-    Funcmatic.clear()
+    funcmatic = funcmatic.clone()
+    plugin = funcmatic.getPlugin('sentry')
   })
-  it ('should set a sentry.captureException service', async () => {
-    Funcmatic.use(SentryPlugin, { dsn: process.env.SENTRY_DSN })
-    var event = { queryStringParameters: { throwError: 'Error in user function' } }
-    var context = { }
-    var ret = await handler(event, context)
-    console.log("RET", ret)
+  it ('should set a sentry service for manual logging of exceptions', async () => {
+    var event = { httpMethod: 'GET' }
+    var context = { coldstart: true }
+    var ret = await funcmatic.invoke(event, context, async (event, context, { sentry }) => {
+      expect(sentry).toBeTruthy()
+      var eventId = await sentry.captureException(new Error("user manually invoked captureException with errorContext"), {
+        event, 
+        context
+      })
+      expect(eventId).toBeTruthy()
+      return { eventId }
+    })
+  })
+  it ('should automatically log exception for uncaught error', async () => {
+    var event = { httpMethod: 'GET' }
+    var context = { coldstart: true }
+    try {
+      var ret = await funcmatic.invoke(event, context, async (event, context, { sentry }) => {
+        throw new Error("Uncaught user exception")
+      })
+    } catch (err) { }
+    expect(plugin.lastCapture).toBeTruthy()
+    expect(plugin.lastCapture).toMatchObject({
+      success: true,
+      capture: {
+        eventId: expect.anything(),
+        err: new Error("Uncaught user exception"),
+        errContext: { event, context }
+      }
+    })
   })
 }) 
