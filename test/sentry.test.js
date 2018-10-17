@@ -6,6 +6,20 @@ funcmatic.use(SentryPlugin, {
   dsn: process.env.SENTRY_DSN
 })
 
+describe('Initialization', () => {
+  it ('should set parameters based env variables', async () => {
+    expect(process.env.SENTRY_DSN).toBeTruthy()
+    funcmatic = funcmatic.clone()
+    funcmatic.clear()
+    funcmatic.use(SentryPlugin)
+    var plugin = funcmatic.getPlugin('sentry')
+    expect(plugin.dsn).toBeFalsy() // it should not be initialized yet
+    await funcmatic.invoke({}, {}, async(event, context, { sentry }) => {
+      // noop
+    })
+    expect(plugin.dsn).toEqual(process.env.SENTRY_DSN)
+  })
+})
 describe('Request', () => {
   plugin = null
   beforeEach(() => {
